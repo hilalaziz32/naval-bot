@@ -511,18 +511,22 @@ def _render_chat_feed(chunk_preview_len: int):
         st.markdown("</div>", unsafe_allow_html=True)
 
 
-_render_chat_feed(chunk_preview_len)
-
-st.markdown("---")
-st.markdown(
-    """
-    <div class='prompt-hero'>
-        <div class='prompt-greeting'>Evening, Navy Watch</div>
-        <div class='prompt-subtitle'>How can I help you today?</div>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+feed_container = st.container()
+with feed_container:
+    if st.session_state.chat_messages:
+        _render_chat_feed(chunk_preview_len)
+        st.markdown("---")
+    else:
+        st.markdown(
+            """
+            <div class='prompt-hero'>
+                <div class='prompt-greeting'>Evening, Navy Watch</div>
+                <div class='prompt-subtitle'>How can I help you today?</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.markdown("---")
 
 st.markdown("<div class='prompt-card'>", unsafe_allow_html=True)
 query = st.text_input(
