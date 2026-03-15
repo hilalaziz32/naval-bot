@@ -1,3 +1,9 @@
+import os
+import sys
+
+# Ensure repo root is on sys.path so `navy_agent_mvp` is importable on Streamlit Cloud
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import streamlit as st
 
 from navy_agent_mvp.config import load_book_catalog, load_env
