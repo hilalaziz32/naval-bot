@@ -15,6 +15,218 @@ from navy_agent_mvp.nodes.answer import generate_topic_chat_response
 st.set_page_config(page_title="Navy Q&A MVP", page_icon="⚓", layout="wide")
 load_env()
 
+CHAT_CSS = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap');
+:root {
+    --ink: #050b16;
+    --deep-navy: #08142e;
+    --aqua: #4bd6ff;
+    --sand: #ffe4c7;
+    --cloud: #f4f7fb;
+    --card-border: rgba(13, 37, 78, 0.15);
+}
+.stApp {
+    font-family: 'Space Grotesk', sans-serif;
+    color: var(--ink);
+    background: radial-gradient(circle at 10% 20%, rgba(31,64,139,0.15), transparent 45%),
+                radial-gradient(circle at 80% 0%, rgba(20,174,221,0.18), transparent 40%),
+                linear-gradient(180deg, #f4f7fc 0%, #eef2fb 40%, #e6ebf7 100%);
+}
+[data-testid="stSidebar"] .block-container {
+    font-family: 'Space Grotesk', sans-serif;
+}
+.chat-feed-shell {
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(9, 21, 53, 0.07);
+    border-radius: 24px;
+    padding: 20px 28px;
+    backdrop-filter: blur(14px);
+    box-shadow: 0 25px 60px rgba(9, 16, 40, 0.08);
+}
+.chat-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 28px;
+}
+.chat-row:last-of-type {
+    margin-bottom: 0;
+}
+.chat-row.user {
+    justify-content: flex-end;
+}
+.chat-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: var(--deep-navy);
+    color: #f4fbff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+.chat-row.user .chat-avatar {
+    background: #e8f1ff;
+    color: #0b285d;
+}
+.chat-bubble {
+    max-width: min(780px, 90%);
+    border-radius: 22px;
+    padding: 18px 22px 20px;
+    background: #ffffff;
+    box-shadow: 0 20px 60px rgba(8, 17, 46, 0.08);
+    border: 1px solid rgba(9, 23, 64, 0.1);
+}
+.chat-row.user .chat-bubble {
+    background: #041c3f;
+    border-color: rgba(75, 214, 255, 0.2);
+    color: #e9f4ff;
+}
+.chat-badge {
+    font-size: 0.73rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+}
+.chat-badge.kb {
+    background: rgba(75, 214, 255, 0.18);
+    color: #083c5a;
+}
+.chat-badge.topic {
+    background: rgba(255, 189, 111, 0.32);
+    color: #864400;
+}
+.chat-badge.user {
+    background: rgba(255, 255, 255, 0.18);
+    color: #f1f5ff;
+}
+.chat-body {
+    margin-top: 10px;
+    line-height: 1.55;
+    font-size: 1rem;
+}
+.chat-row.user .chat-body p, .chat-row.user .chat-body li {
+    color: #f1f5ff;
+}
+.chat-meta {
+    margin-top: 14px;
+    font-size: 0.83rem;
+    color: #4c5b7a;
+}
+.chat-row.user .chat-meta {
+    color: #c7dbff;
+}
+.chat-empty {
+    background: #ebf2ff;
+    border-radius: 18px;
+    padding: 18px;
+    text-align: center;
+    color: #15315c;
+}
+.plan-card {
+    margin-top: 14px;
+    border: 1px solid rgba(13, 37, 78, 0.12);
+    border-radius: 14px;
+    padding: 14px 16px;
+    background: #f9fbff;
+    font-size: 0.93rem;
+}
+.plan-card h5 {
+    margin: 0 0 6px;
+    font-size: 0.9rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #0d2c5c;
+}
+.plan-card ul {
+    padding-left: 1.1rem;
+    margin: 4px 0;
+}
+.plan-card .plan-tips {
+    margin-top: 6px;
+    font-size: 0.82rem;
+    color: #334466;
+}
+.chunk-stack {
+    margin-top: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.chunk-meta {
+    font-size: 0.82rem;
+    color: #4b5c7e;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+.chunk-card {
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    padding: 12px 14px;
+    background: #ffffff;
+}
+.chunk-card.used {
+    border-color: rgba(65, 163, 255, 0.5);
+    box-shadow: 0 8px 24px rgba(8, 37, 84, 0.08);
+}
+.chunk-card__header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: space-between;
+    font-size: 0.84rem;
+    font-weight: 600;
+    color: #0f2857;
+}
+.chunk-card__body {
+    margin-top: 6px;
+    font-size: 0.92rem;
+    color: #101b33;
+    white-space: pre-wrap;
+}
+.chunk-card__reason {
+    margin-top: 8px;
+    font-size: 0.8rem;
+    color: #5c6a85;
+}
+.chunk-card__reason strong {
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.75rem;
+    color: #2a4472;
+}
+.stTextInput > div > input {
+    border-radius: 18px !important;
+    border: 1px solid rgba(5, 15, 40, 0.2) !important;
+    padding: 0.9rem 1.2rem !important;
+    font-family: 'Space Grotesk', sans-serif !important;
+    font-size: 1rem !important;
+}
+.stButton button {
+    border-radius: 16px !important;
+    font-weight: 600 !important;
+    font-size: 1rem !important;
+    padding: 0.9rem 1rem !important;
+}
+.stButton button:first-child {
+    background: #0b2f63 !important;
+    color: #f5fbff !important;
+}
+.stButton button:hover {
+    box-shadow: 0 12px 30px rgba(7, 14, 40, 0.18);
+}
+</style>
+"""
+
+st.markdown(CHAT_CSS, unsafe_allow_html=True)
+
 if "chat_memory" not in st.session_state:
     st.session_state.chat_memory = []
 if "chat_messages" not in st.session_state:
@@ -96,13 +308,15 @@ def _render_chunk_cards(hits, citations, retrieval_mode, evidence_cards=None) ->
         return
 
     mode_label = retrieval_mode or "unknown"
-    st.markdown(f"**Retrieved chunks ({len(hits)}) · mode: {mode_label}**")
+    cards_html = [
+        f"<div class='chunk-stack'><div class='chunk-meta'>Retrieved {len(hits)} chunks · mode: {mode_label}</div>"
+    ]
     for idx, chunk in enumerate(hits, start=1):
         similarity = float(chunk.get("similarity") or 0.0)
         rerank = float(chunk.get("rerank_score") or 0.0)
-        used_label = "✅ used in answer" if idx in used else "↗️ extra context"
+        used_label = "Used" if idx in used else "Not used"
         chunk_text = chunk.get("chunk_text") or ""
-        max_len = 1400
+        max_len = 520
         preview = chunk_text if len(chunk_text) <= max_len else chunk_text[:max_len].rstrip() + "..."
         source = escape(chunk.get("source_file") or "unknown.pdf")
         page = chunk.get("page_start")
@@ -110,81 +324,146 @@ def _render_chunk_cards(hits, citations, retrieval_mode, evidence_cards=None) ->
         card = card_map.get(idx)
         reason_lines = card.get("why_selected") if card and card.get("why_selected") else []
 
-        badge = (
-            f"Chunk {idx} · sim {similarity:.4f} · rerank {rerank:.4f} · {used_label}"
-        )
-        meta = f"📖 {source} | page {page} | line {line}"
         reason_text = "<br/>".join(escape(line) for line in reason_lines)
         preview_html = escape(preview)
-        card_html = (
-            "<div style='border:1px solid #1e3a5f25;border-radius:10px;padding:12px;margin-bottom:12px;"
-            "background-color:#f8fafc;'>"
-            f"<div style='font-weight:600;font-size:0.92em;color:#0f172a;'>{badge}</div>"
-            f"<div style='font-size:0.82em;color:#475569;margin-bottom:6px;'>{meta}</div>"
-            f"<div style='font-size:0.92em;white-space:pre-wrap;color:#0b172a;'>{preview_html}</div>"
+        used_class = "used" if idx in used else ""
+        default_reason = escape("Semantic match + route decision")
+        cards_html.append(
+            f"""
+            <div class='chunk-card {used_class}'>
+                <div class='chunk-card__header'>
+                    <span>Chunk {idx} · {used_label}</span>
+                    <span>sim {similarity:.4f} · rerank {rerank:.4f}</span>
+                </div>
+                <div class='chunk-card__body'>{preview_html}</div>
+                <div class='chunk-card__reason'>
+                    <strong>Source</strong> {source} · p.{page} · line {line}<br/>
+                    <strong>Why</strong> {reason_text or default_reason}
+                </div>
+            </div>
+            """
         )
-        if reason_text:
-            card_html += (
-                f"<div style='margin-top:6px;font-size:0.8em;color:#0f172a;'><strong>Why selected:</strong> {reason_text}</div>"
+    cards_html.append("</div>")
+    st.markdown("\n".join(cards_html), unsafe_allow_html=True)
+
+
+def _render_plan_card(plan) -> None:
+    if not plan:
+        return
+    heading = escape(plan.get("heading") or "Plan")
+    sections = plan.get("sections") or []
+    style_tips = plan.get("style_tips") or []
+
+    section_items = []
+    for section in sections:
+        title = escape(section.get("title") or "Section")
+        instruction = escape(section.get("instruction") or "Explain this part.")
+        section_items.append(f"<li><strong>{title}:</strong> {instruction}</li>")
+    section_html = "".join(section_items) or "<li>Summarize the critical points.</li>"
+
+    tips_html = " · ".join(escape(tip) for tip in style_tips) if style_tips else "Use confident, concise phrasing."
+
+    st.markdown(
+        f"""
+        <div class='plan-card'>
+            <h5>Answer plan · {heading}</h5>
+            <ul>{section_html}</ul>
+            <div class='plan-tips'><strong>Style:</strong> {tips_html}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _render_chat_feed():
+    st.subheader("📟 Conversation Feed")
+    with st.container():
+        messages = st.session_state.chat_messages
+        if not messages:
+            st.markdown(
+                """
+                <div class='chat-feed-shell'>
+                    <div class='chat-empty'>Ask a question to start the chat.</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
-        card_html += "</div>"
-        st.markdown(card_html, unsafe_allow_html=True)
+            return
 
+        st.markdown("<div class='chat-feed-shell'>", unsafe_allow_html=True)
+        for msg in messages:
+            role = msg.get("role", "assistant")
+            mode = msg.get("mode", "kb")
+            row_class = "user" if role == "user" else "assistant"
+            avatar = "🧭" if role == "assistant" else "🗨️"
+            badge_class = "user"
+            badge = "Question"
+            if role == "assistant" and mode == "kb":
+                badge_class = "kb"
+                badge = "KB Answer"
+            elif role == "assistant" and mode == "topic":
+                badge_class = "topic"
+                badge = "Topic Chat"
+            elif role == "user" and mode == "topic":
+                badge = "Topic Follow-up"
+            content = msg.get("content", "")
 
-st.subheader("📟 Conversation Feed")
-with st.container():
-    if not st.session_state.chat_messages:
-        st.info("Ask a question to start the chat.")
-    for msg in st.session_state.chat_messages:
-        role = msg.get("role", "assistant")
-        avatar = "🧭" if role == "assistant" else "🗨️"
-        mode = msg.get("mode", "kb")
-        with st.chat_message(role, avatar=avatar):
-            if role == "assistant":
-                badge = "KB Answer" if mode == "kb" else "Topic Chat"
-                st.markdown(
-                    f"<span style='background:#ecf2ff;color:#1d3b8b;padding:2px 10px;border-radius:8px;font-size:0.85em;'>{badge}</span>",
-                    unsafe_allow_html=True,
-                )
-            else:
-                badge = "KB question" if mode == "kb" else "Topic follow-up"
-                st.caption(badge)
-
-            st.markdown(msg.get("content", ""))
-
+            meta_html = ""
             if role == "assistant" and mode == "kb":
                 chunks = msg.get("chunks") or []
                 citations = msg.get("citations") or []
-                retrieval_mode = msg.get("retrieval_mode")
                 used = {c.get("idx") for c in citations}
-                chunk_count = len(chunks)
-                st.caption(
-                    f"Grounded on {len(used)} of {chunk_count} retrieved chunks · mode: {retrieval_mode or 'unknown'}"
+                retrieval_mode = msg.get("retrieval_mode") or "unknown"
+                meta_html = (
+                    f"<div class='chat-meta'>Grounded on {len(used)} of {len(chunks)} retrieved chunks · mode: {retrieval_mode}</div>"
                 )
-                _render_chunk_cards(chunks, citations, retrieval_mode, msg.get("evidence_cards"))
-                if chunk_count > 1 and len(used) <= 1:
-                    st.warning(
-                        "Only one chunk was cited even though multiple were retrieved. Consider refining the question for broader coverage.",
-                        icon="⚠️",
-                    )
-                plan = msg.get("plan")
-                if plan:
-                    with st.expander("Answer plan", expanded=False):
-                        st.markdown(f"**Heading:** {plan.get('heading', 'n/a')}")
-                        sections = plan.get("sections") or []
-                        if sections:
-                            st.markdown("**Sections:**")
-                            for section in sections:
-                                title = section.get("title", "Section")
-                                instruction = section.get("instruction", "")
-                                st.markdown(f"- **{title}:** {instruction}")
-                        style_tips = plan.get("style_tips") or []
-                        if style_tips:
-                            st.caption("Style tips: " + "; ".join(style_tips))
             elif role == "assistant" and mode == "topic":
-                context_preview = (msg.get("topic_context") or "").strip()
-                if context_preview:
-                    st.caption("Context anchor:\n" + context_preview[:400])
+                ctx_preview = (msg.get("topic_context") or "").strip()
+                if ctx_preview:
+                    snippet = escape(ctx_preview[:400])
+                    meta_html = f"<div class='chat-meta'>Anchored to: {snippet}</div>"
+
+            st.markdown(
+                f"""
+                <div class='chat-row {row_class}'>
+                    <div class='chat-avatar'>{avatar}</div>
+                    <div class='chat-bubble'>
+                        <div class='chat-badge {badge_class}'>{badge}</div>
+                        <div class='chat-body'>
+{content}
+                        </div>
+                        {meta_html}
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            if role == "assistant" and mode == "kb":
+                _render_plan_card(msg.get("plan"))
+                _render_chunk_cards(
+                    msg.get("chunks") or [],
+                    msg.get("citations") or [],
+                    msg.get("retrieval_mode"),
+                    msg.get("evidence_cards") or [],
+                )
+            elif role == "assistant" and mode == "topic":
+                ctx_preview = (msg.get("topic_context") or "").strip()
+                if ctx_preview:
+                    st.markdown(
+                        f"""
+                        <div class='plan-card'>
+                            <h5>Context anchor</h5>
+                            <p style='white-space:pre-wrap;'>{escape(ctx_preview[:400])}</p>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+
+_render_chat_feed()
 
 st.markdown("---")
 
