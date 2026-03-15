@@ -188,7 +188,11 @@ with st.container():
 
 st.markdown("---")
 
-query = st.text_input("Ask a naval question", placeholder="e.g., What are actions in restricted visibility?")
+query = st.text_input(
+    "Ask a naval question",
+    placeholder="e.g., What are actions in restricted visibility?",
+    key="kb_question_input",
+)
 
 query = st.text_input("Ask a naval question", placeholder="e.g., What are actions in restricted visibility?")
 
