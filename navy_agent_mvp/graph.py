@@ -4,6 +4,7 @@ from langgraph.graph import END, StateGraph
 
 from navy_agent_mvp.nodes.answer import synthesize_answer_node
 from navy_agent_mvp.nodes.explain import explain_node
+from navy_agent_mvp.nodes.plan import plan_answer_node
 from navy_agent_mvp.nodes.retriever import retrieve_node
 from navy_agent_mvp.nodes.router import route_query_node
 from navy_agent_mvp.state import AgentState
@@ -14,12 +15,14 @@ def build_graph():
 
     graph.add_node("route_query", route_query_node)
     graph.add_node("retrieve", retrieve_node)
+    graph.add_node("plan", plan_answer_node)
     graph.add_node("synthesize", synthesize_answer_node)
     graph.add_node("explain", explain_node)
 
     graph.set_entry_point("route_query")
     graph.add_edge("route_query", "retrieve")
-    graph.add_edge("retrieve", "synthesize")
+    graph.add_edge("retrieve", "plan")
+    graph.add_edge("plan", "synthesize")
     graph.add_edge("synthesize", "explain")
     graph.add_edge("explain", END)
 
@@ -49,6 +52,7 @@ def run_agent(
         "answer_markdown": "",
         "citations": [],
         "evidence_cards": [],
+        "answer_plan": {"heading": "", "sections": [], "style_tips": []},
         "route_debug": {},
     }
     return app.invoke(initial_state)

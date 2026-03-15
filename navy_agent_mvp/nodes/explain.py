@@ -18,6 +18,7 @@ def explain_node(state: AgentState) -> AgentState:
                 "excerpt": truncate(h.get("chunk_text") or "", 380),
                 "why_selected": [
                     f"semantic similarity={float(h.get('similarity') or 0.0):.4f}",
+                    f"rerank score={float(h.get('rerank_score') or 0.0):.4f}",
                     f"router target={route.get('target_source_file') or 'none'}",
                     f"retrieval mode={state.get('retrieval_mode')}",
                 ],
