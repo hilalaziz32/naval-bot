@@ -87,6 +87,8 @@ def synthesize_answer_node(state: AgentState) -> AgentState:
         state["citations"] = []
         return state
 
+    min_chunk_usage = min(len(hits), 3)
+
     evidence_lines: List[str] = []
     for idx, h in enumerate(hits, start=1):
         evidence_lines.append(
@@ -107,7 +109,9 @@ def synthesize_answer_node(state: AgentState) -> AgentState:
         "2) Address each section in order using short paragraphs or bullet lists.\n"
         "3) End with a practical takeaway if appropriate.\n"
         "4) Do NOT mention book names, page numbers, or citation markers.\n"
-        "5) If evidence is insufficient, say so plainly.\n\n"
+        "5) Integrate at least "
+        f"{min_chunk_usage} distinct evidence chunk{'s' if min_chunk_usage != 1 else ''} unless fewer chunks were retrieved.\n"
+        "6) If evidence is insufficient, say so plainly.\n\n"
         "OUTPUT FORMAT:\n"
         "Return STRICT JSON with keys answer_markdown (string) and used_citations (array of integers).\n"
         "No markdown fences. No extra keys.\n\n"
