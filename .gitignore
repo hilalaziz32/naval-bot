@@ -1,6 +1,59 @@
 # Secrets - never commit these
 .env
 
+# Node
+node_modules/
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.turbo/
+
+# Python
+*.pyc
+*.pyo
+*.pyd
+backend/__pycache__/
+navy_agent_mvp/__pycache__/
+*.egg-info/
+*.so
+
+# Docker
+*.pid
+
+# Logs
+*.log
+
+# Misc
+*.sqlite3
+*.db
+.env*
+.envrc
+.local
+.secret
+
+# Build
+coverage/
+
+# Test
+*.out
+.cache/
+*.cache
+
+# Ignore docker volumes
+volumes/
+
+# Ignore backup files
+*~
+*.swp
+*.swo
+
+# Ignore deployment docs
+DEPLOYMENT.md
+QUICKSTART.md
+README_NEW.md
+README.md
+IMPLEMENTATION_SUMMARY.md
+
 # Virtual environment
 .venv/
 venv/

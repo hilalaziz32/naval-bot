@@ -5,3 +5,7 @@ python-dotenv>=1.0.1
 numpy>=2.0.0
 langgraph>=0.2.50
 streamlit>=1.38.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+pyjwt>=2.9.0
+python-multipart>=0.0.9

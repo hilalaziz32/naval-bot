@@ -1,5 +1,5 @@
-from typing import List
-
+"""Streaming version of answer synthesis for real-time token generation."""
+from typing import List, Iterator, Tuple, Dict, Any
 from google import genai
 from google.genai import types
 
@@ -24,6 +24,7 @@ def _response_mode(question: str) -> dict:
 
 
 def _ensure_heading(text: str, heading_hint: str) -> str:
+    """Ensure the text starts with an H3 heading."""
     stripped = text.lstrip()
     if stripped.startswith("### "):
         return text
@@ -32,53 +33,21 @@ def _ensure_heading(text: str, heading_hint: str) -> str:
     return f"{heading}\n\n{text}" if text.strip() else heading
 
 
-def generate_topic_chat_response(user_query: str, short_memory: str, topic_context: str) -> str:
-    api_key = get_gemini_api_key()
-    text_model, _ = get_models()
-    client = genai.Client(api_key=api_key)
-
-    prompt = (
-        "You are a helpful naval training assistant in free-chat mode.\n"
-        "The user already searched the knowledge base. Use the provided topic context as anchor, "
-        "but you may answer naturally like a normal AI assistant.\n\n"
-        "RULES:\n"
-        "- Begin every answer with a level-3 markdown heading that summarizes the takeaway.\n"
-        "- Use short subheadings or bold labels for multi-part guidance.\n"
-        "- Be direct, practical, and concise.\n"
-        "- Prefer answers aligned with the provided topic context.\n"
-        "- If the user asks outside the topic, still help and clearly say when uncertain.\n"
-        "- Do not invent exact rule numbers or quoted passages unless present in context.\n"
-        "- No JSON. Return plain markdown text only.\n\n"
-        f"RECENT_MEMORY:\n{short_memory or 'none'}\n\n"
-        f"TOPIC_CONTEXT:\n{topic_context or 'none'}\n\n"
-        f"USER_QUESTION:\n{user_query}"
-    )
-
-    try:
-        resp = client.models.generate_content(
-            model=text_model,
-            contents=prompt,
-            config=types.GenerateContentConfig(temperature=0.35),
-        )
-        text = (resp.text or "").strip()
-        if text:
-            return _ensure_heading(text, user_query)
-    except Exception:
-        pass
-
-    return _ensure_heading(
-        "I can help with this topic, but I could not generate a response right now. Please try again.",
-        user_query,
-    )
-
-
-def synthesize_answer_node(state: AgentState) -> AgentState:
+def synthesize_answer_streaming(state: AgentState) -> Iterator[Tuple[str, Dict[str, Any]]]:
+    """
+    Stream answer tokens in real-time from Gemini.
+    
+    Yields:
+        Tuple[str, Dict]: (token_text, metadata_dict)
+        - During streaming: ("token", {})
+        - At end: ("", {"citations": [...], "done": True})
+    """
     hits = state.get("hits", [])
     user_query = state["user_query"]
     refined_query = state["route"]["refined_query"]
-    conversation_context = state.get("conversation_context") or ""
     plan = state.get("answer_plan") or {}
     book_hint = state.get("book_context_hint") or ""
+    conversation_context = state.get("conversation_context") or ""
     plan_heading = plan.get("heading") or user_query
     plan_sections = plan.get("sections") or []
     plan_style = plan.get("style_tips") or [
@@ -112,25 +81,29 @@ def synthesize_answer_node(state: AgentState) -> AgentState:
             text_model, _ = get_models()
             client = genai.Client(api_key=api_key)
             try:
-                resp = client.models.generate_content(
+                response = client.models.generate_content_stream(
                     model=text_model,
                     contents=prompt,
                     config=types.GenerateContentConfig(temperature=0.2),
                 )
-                text = (resp.text or "").strip()
-                if text:
-                    state["answer_markdown"] = _ensure_heading(text, plan_heading)
-                    state["citations"] = []
-                    return state
+                for chunk in response:
+                    if chunk.text:
+                        yield (chunk.text, {})
+                yield ("", {"citations": [], "done": True})
+                return
             except Exception:
                 pass
 
-        state["answer_markdown"] = _ensure_heading(
+        fallback = _ensure_heading(
             "I could not find relevant evidence in the indexed books.",
             plan_heading,
         )
-        state["citations"] = []
-        return state
+        # Stream the fallback word by word
+        words = fallback.split()
+        for word in words:
+            yield (word + " ", {})
+        yield ("", {"citations": [], "done": True})
+        return
 
     min_chunk_usage = min(len(hits), 3)
 
@@ -142,7 +115,7 @@ def synthesize_answer_node(state: AgentState) -> AgentState:
         )
 
     prompt = (
-        "You are a naval expert assistant. Follow the provided plan exactly when writing the answer.\n\n"
+        "You are a naval expert assistant. Write a comprehensive answer following the plan.\n\n"
         "BOOK_CONTEXT:\n"
         f"{book_hint or 'General Royal Navy seamanship reference.'}\n\n"
         "PLAN_HEADING:\n"
@@ -156,19 +129,17 @@ def synthesize_answer_node(state: AgentState) -> AgentState:
         f"- detail={mode['detail']}\n"
         f"- table={mode['table']}\n"
         f"- steps={mode['steps']}\n\n"
-        "STEP-BY-STEP:\n"
-        "1) Start with the plan heading as an H3 markdown line.\n"
+        "INSTRUCTIONS:\n"
+        "1) Start with the plan heading as an H3 markdown line (### Heading).\n"
         "2) Address each section in order using short paragraphs or bullet lists.\n"
         "3) End with a practical takeaway if appropriate.\n"
-        "4) Do NOT mention book names, page numbers, or citation markers.\n"
+        "4) Do NOT mention book names, page numbers, or citation markers in the text.\n"
         "5) Integrate at least "
         f"{min_chunk_usage} distinct evidence chunk{'s' if min_chunk_usage != 1 else ''} unless fewer chunks were retrieved.\n"
         "6) If evidence is insufficient, say so plainly.\n"
         "7) Use blank lines between heading, paragraphs, lists, and tables.\n"
-        "8) If you include a table, use GFM syntax with a header row and separator row.\n\n"
-        "OUTPUT FORMAT:\n"
-        "Return STRICT JSON with keys answer_markdown (string) and used_citations (array of integers).\n"
-        "No markdown fences. No extra keys.\n\n"
+        "8) If you include a table, use GFM syntax with a header row and separator row.\n"
+        "9) Be direct, authoritative, and practical.\n\n"
         f"USER_QUESTION:\n{user_query}\n\n"
         f"REFINED_QUERY:\n{refined_query}\n\n"
         f"CONVERSATION_CONTEXT:\n{conversation_context or 'none'}\n\n"
@@ -180,49 +151,70 @@ def synthesize_answer_node(state: AgentState) -> AgentState:
     text_model, _ = get_models()
     client = genai.Client(api_key=api_key)
 
-    answer_markdown = ""
-    used = []
+    accumulated_text = ""
+    heading_added = False
+    
     try:
-        resp = client.models.generate_content(
+        # Use streaming API
+        response = client.models.generate_content_stream(
             model=text_model,
             contents=prompt,
             config=types.GenerateContentConfig(temperature=0.1),
         )
-        data = parse_json_loose(resp.text or "")
-        if isinstance(data, dict):
-            ans = data.get("answer_markdown")
-            if isinstance(ans, str) and ans.strip():
-                answer_markdown = ans.strip()
-            citations_raw = data.get("used_citations", [])
-            if isinstance(citations_raw, list):
-                used = [int(x) for x in citations_raw if isinstance(x, int) and 1 <= x <= len(hits)]
-    except Exception:
-        pass
-
-    if not answer_markdown:
-        top = hits[0]
-        fallback_body = (top.get("answer") or top.get("chunk_text") or "")[:500].strip()
-        answer_markdown = _ensure_heading(
-            fallback_body or "Insufficient information found in the indexed documents.",
-            plan_heading,
-        )
-        used = [1]
-
-    if not used:
-        used = [1]
-
-    citations = []
-    for idx in used:
-        h = hits[idx - 1]
-        citations.append(
-            {
-                "idx": idx,
-                "source_file": h["source_file"],
-                "page_start": h.get("page_start"),
-                "line_start": h.get("line_start"),
-            }
-        )
-
-    state["answer_markdown"] = _ensure_heading(answer_markdown, plan_heading)
-    state["citations"] = citations
-    return state
+        
+        for chunk in response:
+            if chunk.text:
+                text = chunk.text
+                
+                # Ensure heading is present at the start
+                if not heading_added and accumulated_text == "":
+                    if not text.lstrip().startswith("### "):
+                        heading = f"### {plan_heading[:90]}\n\n"
+                        yield (heading, {})
+                        accumulated_text += heading
+                    heading_added = True
+                
+                accumulated_text += text
+                yield (text, {})
+        
+        # After streaming completes, extract citations
+        # For now, we'll use a simple heuristic: assume first 3 chunks were used
+        used_citations = list(range(1, min(4, len(hits) + 1)))
+        
+        citations = []
+        for idx in used_citations:
+            if idx <= len(hits):
+                h = hits[idx - 1]
+                citations.append({
+                    "idx": idx,
+                    "source_file": h["source_file"],
+                    "page_start": h.get("page_start"),
+                    "line_start": h.get("line_start"),
+                })
+        
+        # Send final metadata
+        yield ("", {"citations": citations, "done": True})
+        
+    except Exception as e:
+        # Fallback on error
+        if not accumulated_text:
+            top = hits[0]
+            fallback_body = (top.get("answer") or top.get("chunk_text") or "")[:500].strip()
+            fallback = _ensure_heading(
+                fallback_body or "Insufficient information found in the indexed documents.",
+                plan_heading,
+            )
+            words = fallback.split()
+            for word in words:
+                yield (word + " ", {})
+            
+            citations = [{
+                "idx": 1,
+                "source_file": hits[0]["source_file"],
+                "page_start": hits[0].get("page_start"),
+                "line_start": hits[0].get("line_start"),
+            }]
+            yield ("", {"citations": citations, "done": True})
+        else:
+            # Already streamed some content, just send done signal
+            yield ("", {"citations": [], "done": True, "error": str(e)})
